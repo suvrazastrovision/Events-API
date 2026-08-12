@@ -1,0 +1,772 @@
+openapi: 3.0.3
+info:
+  title: Evently API
+  description: |
+    A Flask-based REST API for managing events and RSVPs with different access levels.
+    This API supports public events, protected events (requires authentication), and admin-only events.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:5000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: API Info
+    description: API information and documentation endpoints
+  - name: Authentication
+    description: User registration and login endpoints
+  - name: Events
+    description: Event management endpoints
+  - name: RSVPs
+    description: RSVP endpoints
+  - name: Health
+    description: Health check endpoint
+
+security:
+  - bearerAuth: []
+
+paths:
+  /:
+    get:
+      tags:
+        - API Info
+      summary: Get API information
+      description: Returns API information including available endpoints and documentation links
+      security: []
+      responses:
+        '200':
+          description: API information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiInfo'
+              example:
+                name: "Evently API"
+                version: "1.0.0"
+                description: "A Flask-based REST API for managing events and RSVPs with different access levels"
+                documentation:
+                  swagger_ui: "/apidocs"
+                  openapi_spec: "/api/openapi.yaml"
+                endpoints:
+                  health: "/api/health"
+                  auth:
+                    register: "/api/auth/register"
+                    login: "/api/auth/login"
+                  events:
+                    list: "/api/events"
+                    get: "/api/events/{id}"
+                    create: "/api/events"
+                  rsvps:
+                    rsvp: "/api/rsvps/event/{event_id}"
+                    get_rsvps: "/api/rsvps/event/{event_id}"
+
+  /api/health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API is running
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+              example:
+                status: healthy
+
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account. The first user registered automatically becomes an admin.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              example1:
+                summary: Register new user
+                value:
+                  username: "john_doe"
+                  password: "securepassword123"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+              example:
+                message: "User created successfully"
+                user:
+                  id: 1
+                  username: "john_doe"
+                  is_admin: true
+                  created_at: "2026-01-03T17:00:00"
+        '400':
+          description: Bad request (missing fields or username already exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingFields:
+                  value:
+                    error: "Username and password are required"
+                usernameExists:
+                  value:
+                    error: "Username already exists"
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login and get JWT token
+      description: Authenticate user and receive a JWT access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              example1:
+                summary: Login
+                value:
+                  username: "john_doe"
+                  password: "securepassword123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                access_token: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+                user:
+                  id: 1
+                  username: "john_doe"
+                  is_admin: true
+                  created_at: "2026-01-03T17:00:00"
+        '400':
+          description: Bad request (missing fields)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Username and password are required"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid credentials"
+
+  /api/events:
+    get:
+      tags:
+        - Events
+      summary: Get all events
+      description: Retrieve a list of all events
+      security: []
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Event'
+              example:
+                - id: 1
+                  title: "Python Meetup"
+                  description: "Monthly Python developer meetup"
+                  date: "2026-01-15T18:00:00"
+                  location: "Tech Hub, Room 101"
+                  capacity: 50
+                  is_public: true
+                  requires_admin: false
+                  created_by: 1
+                  created_at: "2026-01-03T17:00:00"
+                  rsvp_count: 12
+                  attendees: [1, 2, 3, 4, 5]
+
+    post:
+      tags:
+        - Events
+      summary: Create a new event
+      description: Create a new event. Requires authentication.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+            examples:
+              publicEvent:
+                summary: Public event
+                value:
+                  title: "Python Meetup"
+                  description: "Monthly Python developer meetup"
+                  date: "2026-01-15T18:00:00"
+                  location: "Tech Hub, Room 101"
+                  capacity: 50
+                  is_public: true
+                  requires_admin: false
+              protectedEvent:
+                summary: Protected event (requires login)
+                value:
+                  title: "Team Building Workshop"
+                  description: "Internal team building activities"
+                  date: "2026-01-20T14:00:00"
+                  location: "Conference Room A"
+                  capacity: 30
+                  is_public: false
+                  requires_admin: false
+              adminEvent:
+                summary: Admin-only event
+                value:
+                  title: "Security Review Meeting"
+                  description: "Quarterly security review and planning"
+                  date: "2026-01-25T10:00:00"
+                  location: "Executive Boardroom"
+                  capacity: 10
+                  is_public: false
+                  requires_admin: true
+      responses:
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: Bad request (validation errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missingTitle:
+                  value:
+                    error: "Title is required"
+                missingDate:
+                  value:
+                    error: "Date is required"
+                invalidDate:
+                  value:
+                    error: "Invalid date format. Use ISO 8601 format (e.g., 2024-01-15T18:00:00)"
+        '401':
+          description: Unauthorized (authentication required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                msg: "Missing Authorization Header"
+
+  /api/events/{event_id}:
+    get:
+      tags:
+        - Events
+      summary: Get a specific event
+      description: Retrieve details of a specific event by ID
+      security: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: The ID of the event
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Event not found"
+
+  /api/rsvps/event/{event_id}:
+    post:
+      tags:
+        - RSVPs
+      summary: RSVP to an event
+      description: |
+        RSVP to an event (attending or not attending). 
+        - Public events: No authentication required
+        - Protected events: Authentication required
+        - Admin events: Admin role required
+      security: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: The ID of the event to RSVP to
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RSVPRequest'
+            examples:
+              example1:
+                summary: RSVP attending
+                value:
+                  attending: true
+              example2:
+                summary: RSVP not attending
+                value:
+                  attending: false
+      responses:
+        '200':
+          description: RSVP updated successfully (if existing RSVP)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RSVP'
+        '201':
+          description: RSVP created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RSVP'
+              example:
+                id: 1
+                event_id: 1
+                user_id: 1
+                attending: true
+                created_at: "2026-01-03T17:32:31"
+        '400':
+          description: Bad request (validation errors)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                fullCapacity:
+                  value:
+                    error: "Event is at full capacity"
+        '401':
+          description: Unauthorized (authentication required for protected/admin events)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                authRequired:
+                  value:
+                    error: "Authentication required for this event"
+                adminRequired:
+                  value:
+                    error: "Admin access required for this event"
+        '403':
+          description: Forbidden (admin role required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Admin access required for this event"
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Event not found"
+
+    get:
+      tags:
+        - RSVPs
+      summary: Get RSVPs for an event
+      description: Retrieve all RSVPs and statistics for a specific event
+      security: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: The ID of the event
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: RSVPs and statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RSVPsResponse'
+              example:
+                event:
+                  id: 1
+                  title: "Python Meetup"
+                  description: "Monthly Python developer meetup"
+                  date: "2026-01-15T18:00:00"
+                  location: "Tech Hub, Room 101"
+                  capacity: 50
+                  is_public: true
+                  requires_admin: false
+                  created_by: 1
+                  created_at: "2026-01-03T17:00:00"
+                  rsvp_count: 3
+                  attendees: [1, 2]
+                rsvps:
+                  - id: 1
+                    event_id: 1
+                    user_id: 1
+                    attending: true
+                    created_at: "2026-01-03T17:32:31"
+                  - id: 2
+                    event_id: 1
+                    user_id: null
+                    attending: true
+                    created_at: "2026-01-03T17:33:00"
+                  - id: 3
+                    event_id: 1
+                    user_id: 2
+                    attending: false
+                    created_at: "2026-01-03T17:34:15"
+                stats:
+                  attending: 2
+                  not_attending: 1
+                  total: 3
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Event not found"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /api/auth/login endpoint
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Unique username
+          example: "john_doe"
+        password:
+          type: string
+          format: password
+          description: User password
+          example: "securepassword123"
+
+    RegisterResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "User created successfully"
+        user:
+          $ref: '#/components/schemas/User'
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "john_doe"
+        password:
+          type: string
+          format: password
+          example: "securepassword123"
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "john_doe"
+        is_admin:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-03T17:00:00"
+
+    CreateEventRequest:
+      type: object
+      required:
+        - title
+        - date
+      properties:
+        title:
+          type: string
+          description: The event title
+          maxLength: 200
+          example: "Python Meetup"
+        description:
+          type: string
+          description: Event description
+          example: "Monthly Python developer meetup"
+        date:
+          type: string
+          format: date-time
+          description: Event date and time (ISO 8601 format)
+          example: "2026-01-15T18:00:00"
+        location:
+          type: string
+          description: Event location
+          example: "Tech Hub, Room 101"
+        capacity:
+          type: integer
+          nullable: true
+          description: Maximum number of attendees (null for unlimited)
+          example: 50
+        is_public:
+          type: boolean
+          description: Whether the event is publicly accessible
+          default: true
+          example: true
+        requires_admin:
+          type: boolean
+          description: Whether the event requires admin role to RSVP
+          default: false
+          example: false
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Python Meetup"
+        description:
+          type: string
+          nullable: true
+          example: "Monthly Python developer meetup"
+        date:
+          type: string
+          format: date-time
+          example: "2026-01-15T18:00:00"
+        location:
+          type: string
+          nullable: true
+          example: "Tech Hub, Room 101"
+        capacity:
+          type: integer
+          nullable: true
+          description: Maximum number of attendees (null for unlimited)
+          example: 50
+        is_public:
+          type: boolean
+          example: true
+        requires_admin:
+          type: boolean
+          example: false
+        created_by:
+          type: integer
+          nullable: true
+          description: ID of the user who created the event
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-03T17:00:00"
+        rsvp_count:
+          type: integer
+          description: Total number of RSVPs
+          example: 12
+        attendees:
+          type: array
+          items:
+            type: integer
+          description: List of user IDs who are attending
+          example: [1, 2, 3, 4, 5]
+
+    RSVPRequest:
+      type: object
+      properties:
+        attending:
+          type: boolean
+          description: "Whether the user is attending (default: true)"
+          default: true
+          example: true
+
+    RSVP:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        event_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          nullable: true
+          description: ID of the user who RSVP'd (null for anonymous RSVPs on public events)
+          example: 1
+        attending:
+          type: boolean
+          description: Whether the user is attending
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-01-03T17:32:31"
+
+    RSVPsResponse:
+      type: object
+      properties:
+        event:
+          $ref: '#/components/schemas/Event'
+        rsvps:
+          type: array
+          items:
+            $ref: '#/components/schemas/RSVP'
+        stats:
+          type: object
+          properties:
+            attending:
+              type: integer
+              description: Number of attendees
+            not_attending:
+              type: integer
+              description: Number of people not attending
+            total:
+              type: integer
+              description: Total number of RSVPs
+          example:
+            attending: 2
+            not_attending: 1
+            total: 3
+
+    ApiInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Evently API"
+        version:
+          type: string
+          example: "1.0.0"
+        description:
+          type: string
+          example: "A Flask-based REST API for managing events and RSVPs with different access levels"
+        documentation:
+          type: object
+          properties:
+            swagger_ui:
+              type: string
+              example: "/apidocs"
+            openapi_spec:
+              type: string
+              example: "/api/openapi.yaml"
+        endpoints:
+          type: object
+          properties:
+            health:
+              type: string
+              example: "/api/health"
+            auth:
+              type: object
+              properties:
+                register:
+                  type: string
+                  example: "/api/auth/register"
+                login:
+                  type: string
+                  example: "/api/auth/login"
+            events:
+              type: object
+              properties:
+                list:
+                  type: string
+                  example: "/api/events"
+                get:
+                  type: string
+                  example: "/api/events/{id}"
+                create:
+                  type: string
+                  example: "/api/events"
+            rsvps:
+              type: object
+              properties:
+                rsvp:
+                  type: string
+                  example: "/api/rsvps/event/{event_id}"
+                get_rsvps:
+                  type: string
+                  example: "/api/rsvps/event/{event_id}"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "Event is at full capacity"
+        msg:
+          type: string
+          description: Alternative error message format (used by Flask-JWT-Extended)
+          example: "Missing Authorization Header"
+
