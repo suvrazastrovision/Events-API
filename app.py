@@ -1,4 +1,6 @@
-﻿from flask import Flask, jsonify, send_from_directory
+﻿# Events API deployed through the GitHub Actions CI/CD pipeline.
+
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_swagger_ui import get_swaggerui_blueprint
