@@ -100,16 +100,37 @@ jobs:
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
-          curl --fail --show-error --silent \
+          if [[ "$RENDER_DEPLOY_HOOK_URL" != https://api.render.com/deploy/* ]]; then
+            echo "RENDER_DEPLOY_HOOK_URL is missing or malformed"
+            exit 1
+          fi
+
+          curl --fail \
+            --show-error \
+            --silent \
             --request POST \
-            "$RENDER_DEPLOY_HOOK_URL"
+            "${RENDER_DEPLOY_HOOK_URL}"
 
-      - name: Wait for Render rollout
-        run: sleep 30
-
-      - name: Smoke test deployed API
+      - name: Wait for Render and run smoke test
         env:
           RENDER_BASE_URL: ${{ secrets.RENDER_BASE_URL }}
         run: |
-          curl --fail --show-error --silent \
-            "$RENDER_BASE_URL/api/health"
+          if [[ "$RENDER_BASE_URL" != https://*.onrender.com ]]; then
+            echo "RENDER_BASE_URL is missing or malformed"
+            exit 1
+          fi
+
+          for attempt in {1..30}; do
+            if curl --fail --show-error --silent \
+              "${RENDER_BASE_URL%/}/api/health"; then
+              echo
+              echo "Render deployment is healthy"
+              exit 0
+            fi
+
+            echo "Waiting for Render deployment ($attempt/30)..."
+            sleep 10
+          done
+
+          echo "Render deployment did not become healthy"
+          exit 1
