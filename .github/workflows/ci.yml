@@ -115,14 +115,21 @@ jobs:
         env:
           RENDER_BASE_URL: ${{ secrets.RENDER_BASE_URL }}
         run: |
+          if [[ -z "$RENDER_BASE_URL" ]]; then
+            echo "RENDER_BASE_URL secret is missing"
+            exit 1
+          fi
+
+          RENDER_BASE_URL="${RENDER_BASE_URL%/}"
+
           if [[ "$RENDER_BASE_URL" != https://*.onrender.com ]]; then
-            echo "RENDER_BASE_URL is missing or malformed"
+            echo "RENDER_BASE_URL must be an https://*.onrender.com URL"
             exit 1
           fi
 
           for attempt in {1..30}; do
             if curl --fail --show-error --silent \
-              "${RENDER_BASE_URL%/}/api/health"; then
+              "$RENDER_BASE_URL/api/health"; then
               echo
               echo "Render deployment is healthy"
               exit 0
