@@ -63,4 +63,8 @@ jobs:
       - name: Show container logs
         if: always()
         run: docker logs events-api-container
+        
+      - name: Stop and remove container
+        if: always()
+        run: docker rm --force events-api-container || true
 
