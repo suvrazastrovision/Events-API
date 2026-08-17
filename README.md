@@ -1,6 +1,6 @@
 # Evently API
 
-A Flask-based REST API for managing events and RSVPs with different access levels. This API is designed to teach web security best practices through incremental improvements.
+A Flask-based REST API for managing events and RSVPs with different access levels. This API is designed to learn web security best practices through incremental improvements.
 
 ## Features
 
